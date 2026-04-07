@@ -1,14 +1,14 @@
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 
-const HEARTBEAT_CHANNEL_ID = '1483616146996465735';
+const HEARTBEAT_CHANNEL_ID = '1486243169422020648';
 const CATEGORY_ID = '1488253270068691045';
 const CHAMPION_ROLE_ID = '1486206362332434634';
 
 const PUBLIC_ALERTS_CHANNEL_ID = '1488766924321198080';
-const ELITE_IDS_GIST_ID = 'd9db3a72fed74c496fd6cc830f9ca6e9';
+const ELITE_IDS_GIST_ID = '4edcf4d341cd4f7d5d0fb8a50f8b8c3c';
 
-const GIST_USERS_URL = 'https://gist.githubusercontent.com/WrPages/bb18eda2ea748723d8fe0131dd740b70/raw/elite_users.json';
+const GIST_USERS_URL = 'https://gist.githubusercontent.com/WrPages/1c066922bc39ac136b6f234fad6d9420/raw/trainer_users.json';
 
 const MESSAGE_LIFETIME = 12 * 60 * 60 * 1000;
 const CRASH_TIMEOUT = 45 * 60 * 1000;
