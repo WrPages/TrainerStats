@@ -43,7 +43,7 @@ async function fetchJSON(url) {
 }
 
 async function fetchOnlineIDs(url) {
-  const res = await axios.get(url);
+  const res = await axios.get(url, { responseType: "text" });
 
   return res.data
     .split("\n")
