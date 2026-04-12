@@ -194,31 +194,42 @@ module.exports = (client) => {
 
 
             // ================= GLOBAL HEARTBEAT =================
+// ================= GLOBAL HEARTBEAT =================
 const globalChannel = guild.channels.cache.get(GLOBAL_HEARTBEAT_CHANNEL_ID);
 
 if (globalChannel) {
 
-    // Inicializar mapa global si no existe
-    if (!client.heartbeatMap) client.heartbeatMap = new Map();
+    // Mapa para guardar mensajes por usuario
+    if (!client.globalHeartbeatMessages) {
+        client.globalHeartbeatMessages = new Map();
+    }
 
-    // Guardar último heartbeat del usuario
-    client.heartbeatMap.set(userData.name, content);
+    const existingMsgId = client.globalHeartbeatMessages.get(userData.name);
 
-    // Construir resumen completo
-   let summary = "";
+    const newContent = `\`\`\`\n${content}\n\`\`\``;
 
-for (const hb of client.heartbeatMap.values()) {
-    summary += `\`\`\`\n${hb}\n\`\`\`\n`;
-}
+    try {
 
-    // Buscar mensaje anterior del bot
-    const messages = await globalChannel.messages.fetch({ limit: 10 });
-    const botMsg = messages.find(m => m.author.id === client.user.id);
+        if (existingMsgId) {
+            // Intentar editar mensaje existente
+            const msg = await globalChannel.messages.fetch(existingMsgId).catch(() => null);
 
-    if (botMsg) {
-        await botMsg.edit(summary);
-    } else {
-        await globalChannel.send(summary);
+            if (msg) {
+                await msg.edit(newContent);
+            } else {
+                // Si no existe (borrado manual o reinicio)
+                const newMsg = await globalChannel.send(newContent);
+                client.globalHeartbeatMessages.set(userData.name, newMsg.id);
+            }
+
+        } else {
+            // Crear nuevo mensaje para ese usuario
+            const newMsg = await globalChannel.send(newContent);
+            client.globalHeartbeatMessages.set(userData.name, newMsg.id);
+        }
+
+    } catch (err) {
+        console.error("Error updating global heartbeat:", err);
     }
 }
             const publicChannel = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
