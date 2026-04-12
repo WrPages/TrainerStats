@@ -9,6 +9,7 @@ const PUBLIC_ALERTS_CHANNEL_ID = '1488766924321198080';
 const ELITE_IDS_GIST_ID = '4edcf4d341cd4f7d5d0fb8a50f8b8c3c';
 
 const GIST_USERS_URL = 'https://gist.githubusercontent.com/WrPages/1c066922bc39ac136b6f234fad6d9420/raw/trainer_users.json';
+const GLOBAL_HEARTBEAT_CHANNEL_ID = '1492795826857054301';
 
 const MESSAGE_LIFETIME = 12 * 60 * 60 * 1000;
 const CRASH_TIMEOUT = 45 * 60 * 1000;
@@ -191,6 +192,35 @@ module.exports = (client) => {
                 flags: 4096
             });
 
+
+            // ================= GLOBAL HEARTBEAT =================
+const globalChannel = guild.channels.cache.get(GLOBAL_HEARTBEAT_CHANNEL_ID);
+
+if (globalChannel) {
+
+    // Inicializar mapa global si no existe
+    if (!client.heartbeatMap) client.heartbeatMap = new Map();
+
+    // Guardar último heartbeat del usuario
+    client.heartbeatMap.set(userData.name, content);
+
+    // Construir resumen completo
+   let summary = "";
+
+for (const hb of client.heartbeatMap.values()) {
+    summary += `\`\`\`\n${hb}\n\`\`\`\n`;
+}
+
+    // Buscar mensaje anterior del bot
+    const messages = await globalChannel.messages.fetch({ limit: 10 });
+    const botMsg = messages.find(m => m.author.id === client.user.id);
+
+    if (botMsg) {
+        await botMsg.edit(summary);
+    } else {
+        await globalChannel.send(summary);
+    }
+}
             const publicChannel = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
 
             // ================= OFFLINE ALERTS SYSTEM =================
