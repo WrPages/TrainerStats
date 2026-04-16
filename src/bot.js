@@ -63,30 +63,40 @@ async function getPPMHistory() {
 }
 
 async function storePPM(value) {
-  const data = await getPPMHistory();
+  try {
+    const data = await getPPMHistory();
 
-  data.history.push({
-    timestamp: Date.now(),
-    ppm: Number(value)
-  });
+    data.history.push({
+      timestamp: Date.now(),
+      ppm: Number(value)
+    });
 
-  if (data.history.length > 24) {
-    data.history = data.history.slice(-24);
-  }
+    if (data.history.length > 24) {
+      data.history = data.history.slice(-24);
+    }
 
-  await axios.patch(
-    `https://api.github.com/gists/${ppmGistId}`,
-    {
-      files: {
-        [ppmFileName]: {
-          content: JSON.stringify(data, null, 2)
+    await axios.patch(
+      `https://api.github.com/gists/${ppmGistId}`,
+      {
+        files: {
+          [ppmFileName]: {
+            content: JSON.stringify(data, null, 2)
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`
         }
       }
-    },
-    { headers: { Authorization: `Bearer ${GITHUB_TOKEN}` } }
-  );
-}
+    );
 
+  } catch (err) {
+    console.error("❌ GitHub PATCH failed");
+    console.error("Status:", err.response?.status);
+    console.error("Message:", err.response?.data?.message || err.message);
+  }
+}
 async function refreshAveragePPM() {
   const data = await getPPMHistory();
 
