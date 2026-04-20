@@ -31,7 +31,6 @@ const client = new Client({
 });
 
 require('./alerts')(client);
-require('./gymbot')(client);
 
 let panelMessage = null;
 let lastTotalPPM = 0;
