@@ -4,7 +4,8 @@
   "description": "Bot de estadísticas para Discord",
   "main": "src/bot.js",
   "scripts": {
-    "start": "node src/bot.js"
+    "start": "node src/bot.js",
+  "gym": "node src/gymbot.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
