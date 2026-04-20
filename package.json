@@ -2,10 +2,11 @@
   "name": "discord-stats-bot",
   "version": "1.0.0",
   "description": "Bot de estadísticas para Discord",
-  "main": "src/bot.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node src/bot.js",
-  "gym": "node src/gymbot.js"
+    "start": "node src/index.js",
+    "bot": "node src/bot.js",
+    "gym": "node src/gymbot.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
