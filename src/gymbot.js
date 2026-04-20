@@ -12,16 +12,16 @@ if (!TOKEN) {
 }
 
 // 📊 CONFIG
-const statsUrl = process.env.USERS;
-const onlineUrl = process.env.ONLINE_IDS;
+const statsUrl = process.env.GYM_USERS;
+const onlineUrl = process.env.GYM_ONLINE_IDS;
 
 const ppmGistId = "cf32fa21075a04e016b3e98a1f1912b9";
 const ppmFileName = "gym_leader_ppm.json";
 
-const gpUrl = process.env.GP_STATS;
+const gpUrl = process.env.GYM_GP_STATS;
 
-const heartbeatChannelId = process.env.HB_CHANNEL;
-const panelChannelId = process.env.PANEL_CHANNEL;
+const heartbeatChannelId = process.env.GYM_HB_CHANNEL;
+const panelChannelId = process.env.GYM_PANEL_CHANNEL;
 
 // 🤖 CLIENT
 const client = new Client({
