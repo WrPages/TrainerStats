@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "bot": "node src/bot.js",
-    "gym": "node src/gymbot.js"
+    "gym": "node src/gymbot.js",
+    "elite": "node src/elite_bot.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
