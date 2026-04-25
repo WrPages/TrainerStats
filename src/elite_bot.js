@@ -30,7 +30,7 @@ const client = new Client({
         GatewayIntentBits.MessageContent]
 });
 
-require('./alerts')(client);
+require('./elite_alerts')(client);
 
 let panelMessage = null;
 let lastTotalPPM = 0;
