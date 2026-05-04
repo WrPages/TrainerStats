@@ -239,42 +239,101 @@ function cleanList(str) {
 }
 
 function parseStats(content) {
+  const text = String(content || "");
+
+  const timeMatch = text.match(/Time:\s*([^\n\r]+?)\s+Packs:/i);
+  const packsMatch = text.match(/Packs:\s*(\d+)/i);
+  const avgMatch = text.match(/Avg:\s*([\d.]+)\s*packs?\s*\/?\s*min/i) || text.match(/Avg:\s*([\d.]+)/i);
+  const onlineMatch = text.match(/Online:\s*([^\n\r]+)/i);
+  const offlineMatch = text.match(/Offline:\s*([^\n\r]+)/i);
+
   return {
-    time: content.match(/Time:\s(.+?)\sPacks:/)?.[1] || "0",
-    packs: Number(content.match(/Packs:\s(\d+)/)?.[1] || 0),
-    ppm: Number(content.match(/Avg:\s([\d.]+)/)?.[1] || 0),
-    online: cleanList(content.match(/Online:\s(.+)/)?.[1]),
-    offline: cleanList(content.match(/Offline:\s(.+)/)?.[1])
+    time: timeMatch?.[1]?.trim() || "0",
+    packs: Number(packsMatch?.[1] || 0),
+    ppm: Number(avgMatch?.[1] || 0),
+    online: cleanList(onlineMatch?.[1]),
+    offline: cleanList(offlineMatch?.[1])
   };
+}
+
+function getMessageText(msg) {
+  let content = msg?.content || "";
+
+  if ((!content || content.trim() === "") && msg?.embeds?.length > 0) {
+    content =
+      msg.embeds[0].description ||
+      msg.embeds[0].fields?.map(f => `${f.name}\n${f.value}`).join("\n") ||
+      "";
+  }
+
+  return String(content || "");
+}
+
+function normalizeHeartbeatName(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "") // caracteres invisibles
+    .replace(/[*_`~|>]/g, "")              // markdown
+    .replace(/^@+/, "")                    // @nombre
+    .replace(/[:：]+$/g, "")               // nombre:
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function extractHeartbeatName(content) {
+  const lines = String(content || "")
+    .split(/\r?\n/)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return "";
+
+  let firstLine = lines[0];
+
+  // Si viene como "**Nombre**" o "`Nombre`"
+  firstLine = firstLine.replace(/[*_`~]/g, "").trim();
+
+  // Si viene como "@Nombre Youre a rock star!" tomar solo @Nombre
+  const mentionName = firstLine.match(/^@([^\s]+)/);
+  if (mentionName) return mentionName[1];
+
+  // Si viene como "Nombre:" quitar los dos puntos
+  firstLine = firstLine.replace(/[:：]+$/g, "").trim();
+
+  return firstLine;
+}
+
+function namesMatch(heartbeatName, registeredName) {
+  const hb = normalizeHeartbeatName(heartbeatName);
+  const reg = normalizeHeartbeatName(registeredName);
+
+  if (!hb || !reg) return false;
+
+  if (hb === reg) return true;
+
+  // Permite coincidencia si uno contiene al otro.
+  // Útil si el heartbeat manda "Wender Ramirez" y el registro tiene "Wender".
+  if (hb.includes(reg) || reg.includes(hb)) return true;
+
+  return false;
 }
 
 function findLastUserMessage(messages, username) {
   if (!messages || !Array.isArray(messages)) return null;
 
-  const name = String(username || "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  for (const msg of messages) {
+    const content = getMessageText(msg);
+    if (!content) continue;
 
-  return messages.find(m => {
-    if (!m) return false;
+    const heartbeatName = extractHeartbeatName(content);
 
-    let content = m.content || "";
-
-    if ((!content || content.trim() === "") && m.embeds?.length > 0) {
-      content = m.embeds[0].description || "";
+    if (namesMatch(heartbeatName, username)) {
+      return msg;
     }
+  }
 
-    if (!content) return false;
-
-    const firstLine = content
-      .split("\n")[0]
-      ?.toLowerCase()
-      .trim()
-      .replace(/\s+/g, " ");
-
-    return firstLine === name;
-  }) || null;
+  return null;
 }
 
 function calculateGlobalStats(onlineStats) {
@@ -372,6 +431,9 @@ async function generatePanel(group) {
       (user.sec_id && onlineIds.has(user.sec_id));
 
     const msg = findLastUserMessage(messages, user.name);
+    if (!msg) {
+  console.log(`⚠️ No heartbeat found for ${user.name} in ${group}`);
+}
 
     let stats = {
       time: "0",
@@ -381,15 +443,10 @@ async function generatePanel(group) {
       offline: []
     };
 
-    if (msg) {
-      let content = msg.content || "";
-
-      if ((!content || content.trim() === "") && msg.embeds?.length > 0) {
-        content = msg.embeds[0].description || "";
-      }
-
-      stats = parseStats(content);
-    }
+if (msg) {
+  const content = getMessageText(msg);
+  stats = parseStats(content);
+}
 
     if (isOnline) {
       onlineStats.push(stats);
