@@ -8,6 +8,7 @@
     "bot": "node src/bot.js"
   },
   "dependencies": {
+    "@upstash/redis": "^1.35.3",
     "discord.js": "^14.14.1",
     "axios": "^1.6.0"
   }
