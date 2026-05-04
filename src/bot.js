@@ -34,7 +34,7 @@ const GROUP_CONFIG = {
   Trainer: {
     label: "Trainer",
     heartbeatChannelId: "1486243169422020648",
-    panelChannelId: "1488126321786753156"
+    panelChannelId: "1490581093429280808"
   },
 
   Gym_Leader: {
