@@ -34,19 +34,19 @@ const GROUP_CONFIG = {
   Trainer: {
     label: "Trainer",
     heartbeatChannelId: "1486243169422020648",
-    panelChannelId: "1493153949631647865"
+    panelChannelId: "1488126321786753156"
   },
 
   Gym_Leader: {
     label: "Gym Leader",
     heartbeatChannelId: "1491238609578360833",
-    panelChannelId: "1493153949631647865"
+    panelChannelId: "1495594175058673736"
   },
 
   Elite_Four: {
     label: "Elite Four",
     heartbeatChannelId: "1483616146996465735",
-    panelChannelId: "1493153949631647865"
+    panelChannelId: "1488126321786753156"
   }
 };
 
