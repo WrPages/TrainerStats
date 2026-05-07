@@ -220,10 +220,14 @@ function findUserByHeartbeatName(users, heartbeatName) {
   for (const [discordId, userData] of Object.entries(users)) {
     const candidates = [
       userData.name,
+      userData.heartbeatName,
       userData.username,
       userData.displayName,
-      userData.display_name
-    ].filter(Boolean);
+      userData.display_name,
+      ...(Array.isArray(userData.aliases) ? userData.aliases : [])
+    ]
+      .map(x => String(x || "").trim())
+      .filter(Boolean);
 
     for (const candidate of candidates) {
       if (namesMatch(heartbeatName, candidate)) {
@@ -254,7 +258,7 @@ async function getOrCreatePersonalChannel({
 
   if (userChannel) return userChannel;
 
-  const safeName = String(userData.name || member.user.username || "user")
+  const safeName = String(userData.heartbeatName || userData.name || member.user.username || "user")
     .toLowerCase()
     .replace(/[^a-z0-9-_]/g, "-")
     .replace(/-+/g, "-")
@@ -308,7 +312,7 @@ async function sendGlobalHeartbeat(client, guild, channelId, group, userData, co
     client.globalHeartbeatMessages = new Map();
   }
 
-  const mapKey = `${group}:${normalizeName(userData.name || userData.username)}`;
+  const mapKey = `${group}:${normalizeName(userData.heartbeatName || userData.name || userData.username)}`;
   const existingMsgId = client.globalHeartbeatMessages.get(mapKey);
 
   const payload = {
@@ -408,6 +412,14 @@ module.exports = (client, options) => {
 
       if (!entry) {
         console.log(`⚠️ alerts.js no encontró usuario: "${heartbeatName}" en ${group}`);
+console.log(
+  "Usuarios disponibles:",
+  Object.values(users).slice(0, 10).map(u => ({
+    name: u.name,
+    heartbeatName: u.heartbeatName,
+    aliases: u.aliases
+  }))
+);
         return;
       }
 
