@@ -319,8 +319,25 @@ function namesMatch(heartbeatName, registeredName) {
   return false;
 }
 
-function findLastUserMessage(messages, username) {
+function getUserNameCandidates(userData) {
+  const candidates = [
+    userData.name,
+    userData.heartbeatName,
+    userData.username,
+    userData.displayName,
+    userData.display_name,
+    ...(Array.isArray(userData.aliases) ? userData.aliases : [])
+  ];
+
+  return candidates
+    .map(x => String(x || "").trim())
+    .filter(Boolean);
+}
+
+function findLastUserMessageForUser(messages, userData) {
   if (!messages || !Array.isArray(messages)) return null;
+
+  const candidates = getUserNameCandidates(userData);
 
   for (const msg of messages) {
     const content = getMessageText(msg);
@@ -328,8 +345,10 @@ function findLastUserMessage(messages, username) {
 
     const heartbeatName = extractHeartbeatName(content);
 
-    if (namesMatch(heartbeatName, username)) {
-      return msg;
+    for (const candidate of candidates) {
+      if (namesMatch(heartbeatName, candidate)) {
+        return msg;
+      }
     }
   }
 
@@ -430,9 +449,12 @@ async function generatePanel(group) {
       onlineIds.has(user.main_id) ||
       (user.sec_id && onlineIds.has(user.sec_id));
 
-    const msg = findLastUserMessage(messages, user.name);
-    if (!msg) {
-  console.log(`⚠️ No heartbeat found for ${user.name} in ${group}`);
+const msg = findLastUserMessageForUser(messages, user);
+
+if (!msg) {
+  console.log(
+    `⚠️ No heartbeat found for ${user.name} | heartbeatName: ${user.heartbeatName || "none"} in ${group}`
+  );
 }
 
     let stats = {
