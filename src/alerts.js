@@ -88,8 +88,13 @@ function namesMatch(heartbeatName, registeredName) {
   if (!hb || !reg) return false;
 
   if (hb === reg) return true;
-  if (hb.includes(reg)) return true;
-  if (reg.includes(hb)) return true;
+
+  // Solo permitir includes si ambos nombres son largos.
+  // Evita falsos positivos con nombres cortos como dog, zero, bank, etc.
+  if (hb.length >= 5 && reg.length >= 5) {
+    if (hb.includes(reg)) return true;
+    if (reg.includes(hb)) return true;
+  }
 
   return false;
 }
@@ -251,6 +256,98 @@ async function getOrCreatePersonalChannel({
   categoryId,
   group
 }) {
+  const topicTag = `user:${discordId}`;
+
+  const safeName = String(userData.heartbeatName || userData.name || member.user.username || "user")
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "user";
+
+  const desiredName = `personal-${safeName}`;
+
+  // 1. Buscar canal por topic correcto
+  let userChannel = guild.channels.cache.find(c =>
+    c.type === ChannelType.GuildText &&
+    c.topic === topicTag
+  );
+
+  if (userChannel) {
+    return userChannel;
+  }
+
+  // 2. Buscar canal viejo por nombre personal y permisos del usuario
+  const possibleChannels = guild.channels.cache.filter(c =>
+    c.type === ChannelType.GuildText &&
+    c.name.startsWith("personal-")
+  );
+
+  for (const channel of possibleChannels.values()) {
+    const permission = channel.permissionOverwrites.cache.get(discordId);
+
+    const hasUserPermission =
+      permission &&
+      permission.allow.has(PermissionFlagsBits.ViewChannel);
+
+    const nameLooksSame =
+      channel.name === desiredName ||
+      channel.name.includes(safeName);
+
+    if (hasUserPermission || nameLooksSame) {
+      userChannel = channel;
+
+      // Reparar topic para que nunca vuelva a duplicarse
+      await userChannel.setTopic(topicTag).catch(() => {});
+
+      console.log(
+        `♻️ Reusing old personal channel for ${userData.name || discordId}: #${userChannel.name}`
+      );
+
+      return userChannel;
+    }
+  }
+
+  // 3. Si no existe, crear canal nuevo
+  const championRole = guild.roles.cache.get(championRoleId);
+
+  const overwrites = [
+    {
+      id: guild.id,
+      deny: [PermissionFlagsBits.ViewChannel]
+    },
+    {
+      id: member.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory
+      ]
+    }
+  ];
+
+  if (championRole) {
+    overwrites.push({
+      id: championRole.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.ReadMessageHistory
+      ]
+    });
+  }
+
+  userChannel = await guild.channels.create({
+    name: desiredName,
+    type: ChannelType.GuildText,
+    topic: topicTag,
+    parent: categoryId,
+    permissionOverwrites: overwrites
+  });
+
+  console.log(`✅ Personal channel created for ${userData.name || discordId} (${group})`);
+
+  return userChannel;
+}
   let userChannel = guild.channels.cache.find(c =>
     c.isTextBased() &&
     c.topic === `user:${discordId}`
@@ -424,6 +521,9 @@ console.log(
       }
 
       const [discordId, userData] = entry;
+      console.log(
+  `✅ alerts.js match: heartbeat="${heartbeatName}" -> ${userData.name || "Unknown"} (${discordId})`
+);
 
       const guild = message.guild;
       if (!guild) return;
