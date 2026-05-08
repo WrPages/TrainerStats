@@ -348,58 +348,7 @@ async function getOrCreatePersonalChannel({
 
   return userChannel;
 }
-  let userChannel = guild.channels.cache.find(c =>
-    c.isTextBased() &&
-    c.topic === `user:${discordId}`
-  );
 
-  if (userChannel) return userChannel;
-
-  const safeName = String(userData.heartbeatName || userData.name || member.user.username || "user")
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80);
-
-  const championRole = guild.roles.cache.get(championRoleId);
-
-  const overwrites = [
-    {
-      id: guild.id,
-      deny: [PermissionFlagsBits.ViewChannel]
-    },
-    {
-      id: member.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
-        PermissionFlagsBits.ReadMessageHistory
-      ]
-    }
-  ];
-
-  if (championRole) {
-    overwrites.push({
-      id: championRole.id,
-      allow: [
-        PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.ReadMessageHistory
-      ]
-    });
-  }
-
-  userChannel = await guild.channels.create({
-    name: `personal-${safeName}`,
-    type: ChannelType.GuildText,
-    topic: `user:${discordId}`,
-    parent: categoryId,
-    permissionOverwrites: overwrites
-  });
-
-  console.log(`✅ Personal channel created for ${userData.name || discordId} (${group})`);
-
-  return userChannel;
-}
 
 async function sendGlobalHeartbeat(client, guild, channelId, group, userData, content) {
   const globalChannel = guild.channels.cache.get(channelId);
