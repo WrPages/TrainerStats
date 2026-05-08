@@ -158,6 +158,45 @@ async function removeOnlineIDs(redis, group, ids) {
 
   await redis.srem(onlineKey(group), ...cleanIds);
 }
+async function addOnlineIDs(redis, group, ids) {
+  const cleanIds = ids
+    .map(normalizeId)
+    .filter(x => /^\d{16}$/.test(x));
+
+  if (!cleanIds.length) return;
+
+  await redis.sadd(onlineKey(group), ...cleanIds);
+}
+
+function getMainGameId(userData) {
+  const mainId = normalizeId(userData.main_id);
+  return /^\d{16}$/.test(mainId) ? mainId : null;
+}
+
+function getNumericOnlineInstances(content) {
+  const online = getOnlineInstances(content);
+
+  return online.filter(x =>
+    x !== "main" &&
+    x !== "none" &&
+    /^\d+$/.test(x)
+  );
+}
+
+function getHeartbeatPPM(content) {
+  const match = String(content || "").match(/Avg:\s*([\d.]+)\s*packs\/min/i);
+
+  if (!match) return 0;
+
+  return Number(match[1]) || 0;
+}
+
+function hasActiveHeartbeat(content) {
+  const numericInstances = getNumericOnlineInstances(content);
+  const ppm = getHeartbeatPPM(content);
+
+  return numericInstances.length > 0 && ppm > 0;
+}
 
 function isUserOnlineInRedis(userData, onlineIds) {
   const set = new Set(onlineIds.map(normalizeId));
@@ -513,10 +552,37 @@ console.log(
 
       const publicChannel = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
 
-      const onlineIds = await loadOnlineIDs(redis, group);
-      const isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
+let onlineIds = await loadOnlineIDs(redis, group);
+let isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
 
-      const { count, hasMain } = parseOffline(content);
+const mainGameId = getMainGameId(userData);
+const activeHeartbeat = hasActiveHeartbeat(content);
+
+if (!isOnlineGame && mainGameId && activeHeartbeat) {
+  await addOnlineIDs(redis, group, [mainGameId]);
+
+  onlineIds = await loadOnlineIDs(redis, group);
+  isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
+
+  const ppm = getHeartbeatPPM(content);
+  const activeCount = getNumericOnlineInstances(content).length;
+
+  const autoOnlineEmbed = new EmbedBuilder()
+    .setColor(0x00ff88)
+    .setDescription(
+      `🟢 ${member} was set **ONLINE automatically**.\n` +
+      `Detected **${activeCount} active instance${activeCount !== 1 ? "s" : ""}** and **${ppm.toFixed(2)} PPM**.`
+    );
+
+  await userChannel.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
+
+  const publicChannelForOnline = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
+  if (publicChannelForOnline) {
+    await publicChannelForOnline.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
+  }
+}
+
+const { count, hasMain } = parseOffline(content);
 
       if (isOnlineGame) {
         if (count > 0) {
@@ -569,23 +635,51 @@ console.log(
               `Inactivity timer started. If activity does not return in **45 minutes**, you will be set offline.`
           });
 
-          const interval = setInterval(async () => {
-            elapsed += UPDATE_INTERVAL;
-            const remaining = Math.max(0, Math.ceil((CRASH_TIMEOUT - elapsed) / 60000));
+ const interval = setInterval(async () => {
+  const freshOnlineIds = await loadOnlineIDs(redis, group);
+  const stillOnline = isUserOnlineInRedis(userData, freshOnlineIds);
 
-            await userChannel.send({
-              content:
-                `⏳ ${member} Inactivity countdown: **${remaining} minutes remaining**.`
-            }).catch(() => {});
-          }, UPDATE_INTERVAL);
+  if (!stillOnline) {
+    clearTimeout(timeout);
+    clearInterval(interval);
+    crashTimers.delete(timerKey);
 
-          const timeout = setTimeout(async () => {
-            clearInterval(interval);
+    await userChannel.send({
+      content: `✅ ${member} Inactivity timer stopped because you are already offline.`
+    }).catch(() => {});
 
-            const idsToRemove = getUserGameIds(userData);
-            await removeOnlineIDs(redis, group, idsToRemove);
+    return;
+  }
 
-            const red = new EmbedBuilder()
+  elapsed += UPDATE_INTERVAL;
+  const remaining = Math.max(0, Math.ceil((CRASH_TIMEOUT - elapsed) / 60000));
+
+  await userChannel.send({
+    content:
+      `⏳ ${member} Inactivity countdown: **${remaining} minutes remaining**.`
+  }).catch(() => {});
+}, UPDATE_INTERVAL);
+
+const timeout = setTimeout(async () => {
+  clearInterval(interval);
+
+  const freshOnlineIds = await loadOnlineIDs(redis, group);
+  const stillOnline = isUserOnlineInRedis(userData, freshOnlineIds);
+
+  if (!stillOnline) {
+    crashTimers.delete(timerKey);
+
+    await userChannel.send({
+      content: `✅ ${member} Inactivity timeout cancelled because you are already offline.`
+    }).catch(() => {});
+
+    return;
+  }
+
+  const idsToRemove = getUserGameIds(userData);
+  await removeOnlineIDs(redis, group, idsToRemove);
+
+  const red = new EmbedBuilder()
               .setColor(0xFF0000)
               .setDescription(
                 `🚨 ${member} has been set **OFFLINE due to inactivity**.`
