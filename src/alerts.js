@@ -191,11 +191,22 @@ function getHeartbeatPPM(content) {
   return Number(match[1]) || 0;
 }
 
+function hasRequiredHeartbeatType(content) {
+  const match = String(content || "").match(/^Type:\s*(.+)$/im);
+
+  if (!match) return false;
+
+  const typeValue = match[1].trim().toLowerCase();
+
+  return typeValue === "inject wonderpick 96p+";
+}
+
 function hasActiveHeartbeat(content) {
   const numericInstances = getNumericOnlineInstances(content);
   const ppm = getHeartbeatPPM(content);
+  const validType = hasRequiredHeartbeatType(content);
 
-  return numericInstances.length > 0 && ppm > 0;
+  return numericInstances.length > 0 && ppm > 0 && validType;
 }
 
 function isUserOnlineInRedis(userData, onlineIds) {
@@ -564,15 +575,16 @@ if (!isOnlineGame && mainGameId && activeHeartbeat) {
   onlineIds = await loadOnlineIDs(redis, group);
   isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
 
-  const ppm = getHeartbeatPPM(content);
-  const activeCount = getNumericOnlineInstances(content).length;
+const ppm = getHeartbeatPPM(content);
+const activeCount = getNumericOnlineInstances(content).length;
 
-  const autoOnlineEmbed = new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setDescription(
-      `🟢 ${member} was set **ONLINE automatically**.\n` +
-      `Detected **${activeCount} active instance${activeCount !== 1 ? "s" : ""}** and **${ppm.toFixed(2)} PPM**.`
-    );
+const autoOnlineEmbed = new EmbedBuilder()
+  .setColor(0x00ff88)
+  .setDescription(
+    `🟢 ${member} was set **ONLINE automatically**.\n` +
+    `Detected **${activeCount} active instance${activeCount !== 1 ? "s" : ""}**, ` +
+    `**${ppm.toFixed(2)} PPM**, and valid type **Inject Wonderpick 96P+**.`
+  );
 
   await userChannel.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
 
