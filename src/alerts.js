@@ -529,7 +529,6 @@ function getRivalDuoHealth(duo) {
     hasEnoughTotalInstances: totalInstances >= RIVAL_DUO_REQUIRED_TOTAL_INSTANCES
   };
 }
-
 async function sendRivalDuoAlertToBoth({
   guild,
   client,
@@ -540,7 +539,47 @@ async function sendRivalDuoAlertToBoth({
   publicChannel,
   embed,
   content
-}) 
+}) {
+  const members = getRivalDuoMembers(duo);
+
+  for (const duoMember of members) {
+    const member = await guild.members.fetch(duoMember.discordId).catch(() => null);
+    if (!member) continue;
+
+    const userData = {
+      name: duoMember.name,
+      heartbeatName: duoMember.heartbeatName,
+      main_id: duoMember.gameId,
+      role: "Rival Duo"
+    };
+
+    const userChannel = await getOrCreatePersonalChannel({
+      guild,
+      client,
+      member,
+      userData,
+      discordId: duoMember.discordId,
+      championRoleId,
+      categoryId,
+      group
+    });
+
+    if (embed) {
+      await userChannel.send({ embeds: [embed] }).catch(() => {});
+    } else if (content) {
+      await userChannel.send({ content }).catch(() => {});
+    }
+  }
+
+  if (publicChannel) {
+    if (embed) {
+      await publicChannel.send({ embeds: [embed] }).catch(() => {});
+    } else if (content) {
+      await publicChannel.send({ content }).catch(() => {});
+    }
+  }
+}
+
 async function startRivalDuoOfflineTimer({
   redis,
   guild,
@@ -552,76 +591,7 @@ async function startRivalDuoOfflineTimer({
   categoryId,
   group,
   publicChannel
-}) 
-async function handleRivalDuoDedicatedAlerts({
-  redis,
-  guild,
-  client,
-  duo,
-  championRoleId,
-  categoryId,
-  group,
-  publicChannel
 }) {
-  if (!duo) return;
-  if (duo.status !== "online") return;
-
-  const members = getRivalDuoMembers(duo);
-  if (members.length < 2) return;
-
-  if (!duo.lastRotationAt) return;
-
-  const onlineFor = Date.now() - Number(duo.lastRotationAt || 0);
-
-  if (onlineFor < RIVAL_DUO_GRACE_MS) {
-    return;
-  }
-
-  const health = getRivalDuoHealth(duo);
-
-  if (health.hasMissingActive) {
-    const missingNames = health.missingActive
-      .map(m => `<@${m.discordId}>`)
-      .join(", ");
-
-    await startRivalDuoOfflineTimer({
-      redis,
-      guild,
-      client,
-      duo,
-      reason: "rival_duo_no_active_numeric_heartbeat",
-      detail:
-        `No active numeric heartbeat was detected for: ${missingNames}.\n` +
-        `Both Rival Duo users must keep active numeric instances.`,
-      championRoleId,
-      categoryId,
-      group,
-      publicChannel
-    });
-
-    return;
-  }
-
-  if (!health.hasEnoughTotalInstances) {
-    await startRivalDuoOfflineTimer({
-      redis,
-      guild,
-      client,
-      duo,
-      reason: "rival_duo_not_enough_total_instances",
-      detail:
-        `Rival Duo requires **7 total numeric instances** to stay in Elite Four.\n` +
-        `Current total numeric instances detected: **${health.totalInstances}/7**.`,
-      championRoleId,
-      categoryId,
-      group,
-      publicChannel
-    });
-
-    return;
-  }
-}
-{
   const timerKey = `rival_duo_alert:${duo.id}`;
 
   if (crashTimers.has(timerKey)) return;
@@ -732,8 +702,6 @@ async function handleRivalDuoDedicatedAlerts({
       return;
     }
 
-    const members = getRivalDuoMembers(freshDuo);
-
     await removeRivalDuoIdsFromElite(redis, freshDuo);
 
     freshDuo.onlineUsers = {};
@@ -768,46 +736,76 @@ async function handleRivalDuoDedicatedAlerts({
 
   crashTimers.set(timerKey, { timeout, interval });
 }
-{
+
+async function handleRivalDuoDedicatedAlerts({
+  redis,
+  guild,
+  client,
+  duo,
+  championRoleId,
+  categoryId,
+  group,
+  publicChannel
+}) {
+  if (!duo) return;
+  if (duo.status !== "online") return;
+
   const members = getRivalDuoMembers(duo);
+  if (members.length < 2) return;
 
-  for (const duoMember of members) {
-    const member = await guild.members.fetch(duoMember.discordId).catch(() => null);
-    if (!member) continue;
+  if (!duo.lastRotationAt) return;
 
-    const userData = {
-      name: duoMember.name,
-      heartbeatName: duoMember.heartbeatName,
-      main_id: duoMember.gameId,
-      role: "Rival Duo"
-    };
+  const onlineFor = Date.now() - Number(duo.lastRotationAt || 0);
 
-    const userChannel = await getOrCreatePersonalChannel({
+  if (onlineFor < RIVAL_DUO_GRACE_MS) {
+    return;
+  }
+
+  const health = getRivalDuoHealth(duo);
+
+  if (health.hasMissingActive) {
+    const missingNames = health.missingActive
+      .map(m => `<@${m.discordId}>`)
+      .join(", ");
+
+    await startRivalDuoOfflineTimer({
+      redis,
       guild,
       client,
-      member,
-      userData,
-      discordId: duoMember.discordId,
+      duo,
+      reason: "rival_duo_no_active_numeric_heartbeat",
+      detail:
+        `No active numeric heartbeat was detected for: ${missingNames}.\n` +
+        `Both Rival Duo users must keep active numeric instances.`,
       championRoleId,
       categoryId,
-      group
+      group,
+      publicChannel
     });
 
-    if (embed) {
-      await userChannel.send({ embeds: [embed] }).catch(() => {});
-    } else if (content) {
-      await userChannel.send({ content }).catch(() => {});
-    }
+    return;
   }
 
-  if (publicChannel) {
-    if (embed) {
-      await publicChannel.send({ embeds: [embed] }).catch(() => {});
-    } else if (content) {
-      await publicChannel.send({ content }).catch(() => {});
-    }
+  if (!health.hasEnoughTotalInstances) {
+    await startRivalDuoOfflineTimer({
+      redis,
+      guild,
+      client,
+      duo,
+      reason: "rival_duo_not_enough_total_instances",
+      detail:
+        `Rival Duo requires **7 total numeric instances** to stay in Elite Four.\n` +
+        `Current total numeric instances detected: **${health.totalInstances}/7**.`,
+      championRoleId,
+      categoryId,
+      group,
+      publicChannel
+    });
+
+    return;
   }
 }
+
 async function checkRivalDuoHeartbeatTimeouts(redis) {
   const duos = await loadAllRivalDuos(redis)
   const now = Date.now()
