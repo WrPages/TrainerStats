@@ -422,6 +422,149 @@ function formatGPStats(stats) {
   };
 }
 
+// ================= RIVAL DUO HELPERS =================
+
+const RIVAL_DUOS_KEY = "rival_duos"
+
+function parseRivalJson(value, fallback = {}) {
+  try {
+    if (!value) return fallback
+    if (typeof value === "object") return value
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+async function loadAllRivalDuos() {
+  try {
+    const data = await redis.hgetall(RIVAL_DUOS_KEY)
+
+    if (!data || typeof data !== "object") return {}
+
+    const out = {}
+
+    for (const duoId in data) {
+      out[duoId] = parseRivalJson(data[duoId], null)
+    }
+
+    return out
+  } catch (err) {
+    console.error("Error loading Rival Duos:", err)
+    return {}
+  }
+}
+
+function getRivalDuoMembers(duo) {
+  return Object.entries(duo?.members || {}).map(([discordId, member]) => ({
+    discordId,
+    ...member
+  }))
+}
+
+function displayRivalDuoName(duo) {
+  const members = getRivalDuoMembers(duo)
+
+  if (!members.length) return "Empty Duo"
+
+  return members
+    .map(m => m.name || m.heartbeatName || "Unknown")
+    .join(" & ")
+}
+
+function countDuoInstances(stats) {
+  const onlineCount = Array.isArray(stats.online)
+    ? stats.online.filter(x => String(x).toLowerCase() !== "main").length
+    : 0
+
+  const offlineCount = Array.isArray(stats.offline)
+    ? stats.offline.includes("none") ? 0 : stats.offline.length
+    : 0
+
+  return {
+    onlineCount,
+    offlineCount,
+    totalCount: onlineCount + offlineCount
+  }
+}
+
+async function buildRivalDuoStatsForPanel(messages) {
+  const duos = await loadAllRivalDuos()
+  const result = []
+
+  for (const duo of Object.values(duos)) {
+    if (!duo) continue
+    if (duo.status !== "online") continue
+    if (!duo.activeGameId) continue
+
+    const members = getRivalDuoMembers(duo)
+
+    if (members.length < 2) continue
+
+    let totalPPM = 0
+    let totalPacks = 0
+    let totalOnlineInstances = 0
+    let totalInstances = 0
+    let timeText = "0"
+    const memberLines = []
+
+    for (const member of members) {
+      const fakeUser = {
+        name: member.name,
+        heartbeatName: member.heartbeatName,
+        aliases: member.aliases || [],
+        main_id: member.gameId
+      }
+
+      const msg = findLastUserMessageForUser(messages, fakeUser)
+
+      let stats = {
+        time: "0",
+        packs: 0,
+        ppm: 0,
+        online: [],
+        offline: []
+      }
+
+      if (msg) {
+        const content = getMessageText(msg)
+        stats = parseStats(content)
+      }
+
+      const counts = countDuoInstances(stats)
+
+      totalPPM += Number(stats.ppm) || 0
+      totalPacks += Number(stats.packs) || 0
+      totalOnlineInstances += counts.onlineCount
+      totalInstances += counts.totalCount
+
+      if (stats.time && stats.time !== "0") {
+        timeText = stats.time
+      }
+
+      const activeMark = String(duo.activeDiscordId) === String(member.discordId) ? "🟢" : "⚪"
+
+      memberLines.push(
+        `${activeMark} <@${member.discordId}> | ID: \`${member.gameId}\``
+      )
+    }
+
+    result.push({
+      name: displayRivalDuoName(duo),
+      activeGameId: duo.activeGameId,
+      activeDiscordId: duo.activeDiscordId,
+      ppm: Number(totalPPM.toFixed(2)),
+      packs: totalPacks,
+      time: timeText,
+      onlineCount: totalOnlineInstances,
+      totalInstances,
+      offlineCount: Math.max(0, totalInstances - totalOnlineInstances),
+      memberLines
+    })
+  }
+
+  return result
+}
 // ================= PANEL =================
 
 async function generatePanel(group) {
@@ -439,11 +582,11 @@ async function generatePanel(group) {
   const onlineStats = [];
 
   for (const discordId in users) {
-    const user = {
-      ...users[discordId],
-      main_id: normalizeId(users[discordId].main_id),
-      sec_id: normalizeId(users[discordId].sec_id)
-    };
+const user = {
+  ...users[discordId],
+  main_id: normalizeId(users[discordId].main_id),
+  sec_id: normalizeId(users[discordId].sec_id)
+};
 
     const isOnline =
       onlineIds.has(user.main_id) ||
@@ -486,6 +629,29 @@ if (msg) {
       );
     }
   }
+if (group === "Elite_Four") {
+  const duoPanelStats = await buildRivalDuoStatsForPanel(messages)
+
+  for (const duo of duoPanelStats) {
+    onlineStats.push({
+      ppm: duo.ppm,
+      packs: duo.packs,
+      time: duo.time,
+      online: Array.from({ length: duo.onlineCount }, (_, i) => String(i + 1)),
+      offline: duo.offlineCount > 0
+        ? Array.from({ length: duo.offlineCount }, (_, i) => String(i + 1))
+        : ["none"]
+    })
+
+    onlineList.push(
+      `🤝 **${duo.name}**\n` +
+      `${duo.memberLines.join("\n")}\n` +
+      `🎯 Active ID: \`${duo.activeGameId}\`\n` +
+      `⚡ ${duo.ppm.toFixed(2)} | 🀄️ ${duo.packs} | ⏱ ${duo.time} | 🖥️ ${duo.onlineCount} | 💤 ${duo.offlineCount}`
+    )
+  }
+}
+  
 
   const global = calculateGlobalStats(onlineStats);
   const gp = formatGPStats(await getLiveStats(group));
