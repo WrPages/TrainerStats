@@ -839,7 +839,7 @@ module.exports = (client, options) => {
   } catch (err) {
     console.error("Rival Duo heartbeat timeout check error:", err)
   }
-}, 2 * 60 * 1000)
+}, 15 * 60 * 1000)
 
     setInterval(
       () => cleanOldMessages(client, PUBLIC_ALERTS_CHANNEL_ID),
