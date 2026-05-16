@@ -643,12 +643,9 @@ if (group === "Elite_Four") {
         : ["none"]
     })
 
-    onlineList.push(
-      `🤝 **${duo.name}**\n` +
-      `${duo.memberLines.join("\n")}\n` +
-      `🎯 Active ID: \`${duo.activeGameId}\`\n` +
-      `⚡ ${duo.ppm.toFixed(2)} | 🀄️ ${duo.packs} | ⏱ ${duo.time} | 🖥️ ${duo.onlineCount} | 💤 ${duo.offlineCount}`
-    )
+onlineList.push(
+  `🤝 **${duo.name}** | ⚡ ${duo.ppm.toFixed(2)} | 🩹 ${duo.packs} | ⏱ ${duo.time} | 🖥️ ${duo.onlineCount} | zZz ${duo.offlineCount}`
+)
   }
 }
   
