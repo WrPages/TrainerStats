@@ -172,6 +172,7 @@ async function addOnlineIDs(redis, group, ids) {
 
 const RIVAL_DUOS_KEY = "rival_duos"
 const RIVAL_DUO_BY_USER_KEY = "rival_duo_by_user"
+const RIVAL_DUO_HEARTBEAT_TIMEOUT_MS = 5 * 60 * 1000
 
 function parseRivalJson(value, fallback = {}) {
   try {
@@ -450,6 +451,8 @@ async function recordRivalDuoHeartbeat(redis, discordId, content) {
 
   if (!duo.lastHeartbeatAt) duo.lastHeartbeatAt = {}
   if (!duo.lastHeartbeatStats) duo.lastHeartbeatStats = {}
+  if (!duo.onlineUsers) duo.onlineUsers = {}
+duo.onlineUsers[String(discordId)] = true
 
   const packsMatch = String(content || "").match(/Packs:\s*(\d+)/i)
 
@@ -471,6 +474,45 @@ async function recordRivalDuoHeartbeat(redis, discordId, content) {
   await saveRivalDuo(redis, duo)
 
   return duo
+}
+
+async function checkRivalDuoHeartbeatTimeouts(redis) {
+  const duos = await loadAllRivalDuos(redis)
+  const now = Date.now()
+
+  for (const duo of Object.values(duos)) {
+    if (!duo) continue
+
+    const members = getRivalDuoMembers(duo)
+
+    if (members.length < 2) continue
+    if (duo.status !== "online") continue
+
+    const staleMember = members.find(member => {
+      const last = Number(duo.lastHeartbeatAt?.[member.discordId] || 0)
+
+      if (!last) return true
+
+      return now - last >= RIVAL_DUO_HEARTBEAT_TIMEOUT_MS
+    })
+
+    if (!staleMember) continue
+
+    await removeRivalDuoIdsFromElite(redis, duo)
+
+    duo.onlineUsers = {}
+    duo.activeGameId = null
+    duo.activeDiscordId = null
+    duo.status = "offline"
+    duo.offlineReason = `heartbeat_timeout_${staleMember.discordId}`
+    duo.offlineAt = now
+
+    await saveRivalDuo(redis, duo)
+
+    console.log(
+      `🔴 Rival Duo offline by heartbeat timeout: ${displayRivalDuoName(duo)} | stale user: ${staleMember.discordId}`
+    )
+  }
 }
 
 
@@ -791,6 +833,13 @@ module.exports = (client, options) => {
 
   client.once("ready", () => {
     console.log("✅ alerts.js loaded");
+    setInterval(async () => {
+  try {
+    await checkRivalDuoHeartbeatTimeouts(redis)
+  } catch (err) {
+    console.error("Rival Duo heartbeat timeout check error:", err)
+  }
+}, 2 * 60 * 1000)
 
     setInterval(
       () => cleanOldMessages(client, PUBLIC_ALERTS_CHANNEL_ID),
