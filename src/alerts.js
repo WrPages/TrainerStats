@@ -1240,7 +1240,30 @@ if (!entry) {
   return;
 }
 
-const [discordId, userData] = entry;
+let [discordId, userData] = entry;
+      let activeRivalDuoRole = false;
+
+if (group === "Elite_Four") {
+  activeRivalDuoRole = await hasActiveRivalDuoRole(redis, discordId);
+
+  if (activeRivalDuoRole && !isRivalDuo) {
+    const duoEntry = await findRivalDuoMemberByHeartbeatName(redis, heartbeatName);
+
+    if (duoEntry) {
+      isRivalDuo = true;
+      rivalDuoData = duoEntry.duo;
+      discordId = duoEntry.discordId;
+
+      userData = {
+        name: duoEntry.member.name,
+        heartbeatName: duoEntry.member.heartbeatName,
+        main_id: duoEntry.member.gameId,
+        aliases: duoEntry.member.aliases || [],
+        role: "Rival Duo"
+      };
+    }
+  }
+}
       console.log(
   `✅ alerts.js match: heartbeat="${heartbeatName}" -> ${userData.name || "Unknown"} (${discordId})`
 );
@@ -1309,7 +1332,7 @@ const activeHeartbeat = hasActiveHeartbeat(content);
 if (isRivalDuo) {
   // Rival Duo does not auto-online from heartbeat.
   // Online/offline is controlled only by button or command.
-} else if (!isOnlineGame && mainGameId && activeHeartbeat) {
+} else if (!activeRivalDuoRole && !isOnlineGame && mainGameId && activeHeartbeat) {
   await addOnlineIDs(redis, group, [mainGameId]);
 
   onlineIds = await loadOnlineIDs(redis, group);
@@ -1333,7 +1356,7 @@ if (isRivalDuo) {
     await publicChannelForOnline.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
   }
 }
-if (isRivalDuo) {
+if (isRivalDuo || activeRivalDuoRole) {
   return;
 }
 const { count, hasMain } = parseOffline(content);
