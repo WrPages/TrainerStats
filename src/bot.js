@@ -644,7 +644,7 @@ if (group === "Elite_Four") {
     })
 
 onlineList.push(
-  `🤝 ${duo.name}\n` +
+  `🤝 **${duo.name}**\n` +
   `⚡ ${duo.ppm.toFixed(2)} | 🀄️ ${duo.packs} | ⏱ ${duo.time} | 🖥️ ${duo.onlineCount} | 💤 ${duo.offlineCount}`
 )
   }
