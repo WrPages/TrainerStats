@@ -196,7 +196,7 @@ const RIVAL_DUO_BY_USER_KEY = "rival_duo_by_user"
 const RIVAL_DUO_GRACE_MS = 15 * 60 * 1000
 const RIVAL_DUO_CRASH_TIMEOUT = 45 * 60 * 1000
 const RIVAL_DUO_UPDATE_INTERVAL = 10 * 60 * 1000
-const RIVAL_DUO_REQUIRED_TOTAL_INSTANCES = 7
+const RIVAL_DUO_REQUIRED_TOTAL_INSTANCES = 6
 
 function parseRivalJson(value, fallback = {}) {
   try {
