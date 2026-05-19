@@ -1332,29 +1332,29 @@ const activeHeartbeat = hasActiveHeartbeat(content);
 if (isRivalDuo) {
   // Rival Duo does not auto-online from heartbeat.
   // Online/offline is controlled only by button or command.
-} else if (!activeRivalDuoRole && !isOnlineGame && mainGameId && activeHeartbeat) {
-  await addOnlineIDs(redis, group, [mainGameId]);
+//} else if (!activeRivalDuoRole && !isOnlineGame && mainGameId && activeHeartbeat) {
+//  await addOnlineIDs(redis, group, [mainGameId]);
 
-  onlineIds = await loadOnlineIDs(redis, group);
-  isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
+//  onlineIds = await loadOnlineIDs(redis, group);
+ // isOnlineGame = isUserOnlineInRedis(userData, onlineIds);
 
-  const ppm = getHeartbeatPPM(content);
-  const activeCount = getNumericOnlineInstances(content).length;
+ // const ppm = getHeartbeatPPM(content);
+ // const activeCount = getNumericOnlineInstances(content).length;
 
-  const autoOnlineEmbed = new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setDescription(
-      `🟢 ${member} was set **ONLINE automatically**.\n` +
-      `Detected **${activeCount} active instance${activeCount !== 1 ? "s" : ""}**, ` +
-      `**${ppm.toFixed(2)} PPM**, and valid type **Inject Wonderpick 96P+**.`
-    );
+ // const autoOnlineEmbed = new EmbedBuilder()
+   // .setColor(0x00ff88)
+    //.setDescription(
+     // `🟢 ${member} was set **ONLINE automatically**.\n` +
+    //  `Detected **${activeCount} active instance${activeCount !== 1 ? "s" : ""}**, ` +
+     // `**${ppm.toFixed(2)} PPM**, and valid type **Inject Wonderpick 96P+**.`
+   // );
 
-  await userChannel.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
+  //await userChannel.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
 
-  const publicChannelForOnline = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
-  if (publicChannelForOnline) {
-    await publicChannelForOnline.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
-  }
+//  const publicChannelForOnline = guild.channels.cache.get(PUBLIC_ALERTS_CHANNEL_ID);
+ // if (publicChannelForOnline) {
+ //   await publicChannelForOnline.send({ embeds: [autoOnlineEmbed] }).catch(() => {});
+ // }
 }
 if (isRivalDuo || activeRivalDuoRole) {
   return;
